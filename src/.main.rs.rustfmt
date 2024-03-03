@@ -1,0 +1,86 @@
+use std::{collections::HashMap, time::Duration};
+use rand::{Rng, rngs::ThreadRng};
+use actix::prelude::*;
+
+mod models;
+use models::*;
+
+impl Actor for Portfolio {
+    type Context = Context<Self>;
+}
+
+impl Handler<TickData> for Portfolio {
+    type Result = ();
+
+    fn handle(&mut self, msg: TickData, _ctx: &mut Self::Context) -> Self::Result {
+        println!("got tick data! {:?}", msg);
+    }
+}
+
+impl Handler<TradeEvent> for Portfolio {
+    type Result = ();
+
+    fn handle(&mut self, msg: TradeEvent, ctx: &mut Self::Context) -> Self::Result {
+        match msg {
+            TradeEvent::Open(pos) => {
+
+            },
+            TradeEvent::Close(pos_id) => {
+                let mut pos = self.positions.get_mut(&pos_id);
+                
+            }
+        }
+    }
+}
+
+struct TickFeed {
+    rng: ThreadRng,
+    subs: Vec<Addr<Portfolio>>
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct StartTickFeedEvent(Duration);
+
+impl Actor for TickFeed {
+    type Context = Context<Self>;
+}
+
+impl Handler<StartTickFeedEvent> for TickFeed {
+    type Result = ();
+
+    fn handle(&mut self, ev: StartTickFeedEvent, ctx: &mut Self::Context) -> Self::Result {
+        println!("Starting tick feed");
+        ctx.run_interval(ev.0, |act, _| {
+            for subscriber in &act.subs {
+                print!("Sending tick data for AAPL...");
+                if let Err(e) = subscriber.try_send(TickData { security: AAPL.clone(), price: act.rng.gen_range(100.0f64..200f64) }) {
+                    eprintln!("Failed to send, {:?}", e);
+                };
+                println!(" Complete!");
+            }
+        });
+    }
+}
+
+fn main() {
+    let system = System::new();
+
+    system.block_on(async {
+        let portfolio = Portfolio {
+            code: String::from("RMCF"),
+            positions: HashMap::default()
+        }.start();
+        
+        let tick_feed = TickFeed {
+            rng: rand::thread_rng(),
+            subs: vec![portfolio]
+        }.start();
+
+        tick_feed.send(StartTickFeedEvent(Duration::from_secs(1))).await.expect("Failed to send event to start tick feed");
+
+        tick_feed
+    });
+
+    system.run().expect("Failed to run the system");
+}
