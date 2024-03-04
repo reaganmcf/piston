@@ -9,7 +9,8 @@ pub type PositionId = u32;
 pub struct Portfolio {
     pub code: String,
     pub positions: HashMap<PositionId, Position>,
-    pub pnl: f64
+    pub pnl: f64,
+    pub trade_count: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -28,14 +29,14 @@ pub struct Position {
 
 #[derive(Message, Debug)]
 #[rtype(result = "()")]
-pub struct TickData {
+pub struct Tick {
     pub security: Security,
     pub price: f64,
 }
 
 #[derive(Message, Debug)]
 #[rtype(result = "()")]
-pub enum TradeEvent {
+pub enum Trade {
     Open(Position),
     Close(PositionId),
 }
@@ -51,5 +52,3 @@ lazy_static! {
         id: 1
     };
 }
-
-pub static mut NEXT_POSITION_ID: PositionId = 0;
