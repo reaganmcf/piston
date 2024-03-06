@@ -1,6 +1,7 @@
 use actix::prelude::*;
 use log::{debug, info};
 use stats::{PortfolioStatsEvent, PortfolioStatsFeed};
+use dotenv::dotenv;
 use std::{collections::HashMap, time::Duration};
 use tick_feed::TickFeed;
 use trade_feed::TradeFeed;
@@ -77,6 +78,7 @@ impl Handler<PortfolioStatsEvent> for Portfolio {
     }
 }
 fn main() {
+    dotenv().ok();
     env_logger::init();
     let system = System::new();
 
