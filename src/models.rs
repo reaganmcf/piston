@@ -19,10 +19,11 @@ pub struct Security {
     pub ticker: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Position {
     pub id: PositionId,
     pub security: Security,
+    pub cost_basis: f64,
     pub size: u32,
     pub unrealized_pnl: f64,
 }
