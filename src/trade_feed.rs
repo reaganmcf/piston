@@ -1,24 +1,24 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use actix::prelude::*;
 use log::info;
 use rand::{distributions::Uniform, prelude::Distribution, rngs::ThreadRng, Rng};
 
-use crate::models::*;
+use crate::models::*; //
 
 pub struct TradeFeed {
     rng: ThreadRng,
     timescale: Duration,
-    subs: Vec<Addr<Portfolio>>,
+    portfolios: HashMap<String, Addr<Portfolio>>,
     internal_next_trade_id: u32,
 }
 
 impl TradeFeed {
-    pub fn new(subs: Vec<Addr<Portfolio>>, timescale: Duration) -> Self {
+    pub fn new(portfolios: HashMap<String, Addr<Portfolio>>, timescale: Duration) -> Self {
         Self {
             rng: rand::thread_rng(),
             timescale,
-            subs,
+            portfolios,
             internal_next_trade_id: 0,
         }
     }
@@ -33,6 +33,13 @@ impl TradeFeed {
             cost_basis: price * f64::from(size),
             unrealized_pnl: 0f64,
         }
+    }
+
+    fn gen_portfolio_code(&mut self) -> String {
+        let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
+        let idx = self.rng.gen_range(0..self.portfolios.len());
+
+        portfolio_codes[idx].clone()
     }
 
     fn gen_security(&self) -> Security {
@@ -59,6 +66,15 @@ impl TradeFeed {
 
         Duration::from_millis(seconds)
     }
+
+    fn pick_random_portfolio(&mut self) -> (String, Addr<Portfolio>) {
+        let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
+        let idx = self.rng.gen_range(0..self.portfolios.len());
+        let key = portfolio_codes[idx].clone();
+        let cloned = key.clone();
+
+        (key, self.portfolios[&cloned].clone())
+    }
 }
 
 impl Actor for TradeFeed {
@@ -69,25 +85,26 @@ impl Actor for TradeFeed {
         let timescale = self.timescale.clone();
 
         ctx.run_interval(timescale, move |act, ctx| {
-            let subs = act.subs.clone();
-            for sub in subs {
-                // Mock open trade event
-                let position = act.gen_mock_position();
-                let buy = Trade::Open(position.clone());
+            let (portfolio_code, sub) = act.pick_random_portfolio();
+            // Mock open trade event
+            let position = act.gen_mock_position();
+            let buy = Trade {
+                portfolio_code: portfolio_code.clone(),
+                trade_type: TradeType::Open(position.clone()),
+            };
 
-                sub.try_send(buy).expect("failed to send buy");
+            sub.try_send(buy).expect("failed to send buy");
 
-                let subs = act.subs.clone();
-                let when_to_sell = act.gen_duration();
-                // Schedule the corresponding close trade event after another interval
-                ctx.run_later(when_to_sell, move |_, _| {
-                    for sub_inner in subs {
-                        let sell = Trade::Close(position.id);
+            let when_to_sell = act.gen_duration();
+            // Schedule the corresponding close trade event after another interval
+            ctx.run_later(when_to_sell, move |_, _| {
+                let sell = Trade {
+                    portfolio_code,
+                    trade_type: TradeType::Close(position.id),
+                };
 
-                        sub_inner.try_send(sell).expect("failed to send");
-                    }
-                });
-            }
+                sub.try_send(sell).expect("failed to send");
+            });
         });
     }
 }

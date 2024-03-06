@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub type SecurityId = u32;
 pub type PositionId = u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Portfolio {
     pub code: String,
     pub positions: HashMap<PositionId, Position>,
@@ -37,10 +37,17 @@ pub struct Tick {
 
 #[derive(Message, Debug)]
 #[rtype(result = "()")]
-pub enum Trade {
+pub struct Trade {
+    pub portfolio_code: String,
+    pub trade_type: TradeType
+}
+
+#[derive(Debug)]
+pub enum TradeType {
     Open(Position),
     Close(PositionId),
 }
+
 
 // TODO - these should be fed through into some global cache
 lazy_static! {
