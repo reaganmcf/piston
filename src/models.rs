@@ -1,6 +1,8 @@
-use actix::Message;
+use actix::{Message, Addr};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+
+use crate::security_cache::SecurityCache;
 
 pub type SecurityId = u32;
 pub type PositionId = u32;
@@ -10,6 +12,7 @@ pub struct Portfolio {
     pub code: String,
     pub positions: HashMap<PositionId, Position>,
     pub pnl: f64,
+    pub security_cache: Addr<SecurityCache>,
     pub trade_count: u32,
 }
 
@@ -31,7 +34,7 @@ pub struct Position {
 #[derive(Message, Debug)]
 #[rtype(result = "()")]
 pub struct Tick {
-    pub security: Security,
+    pub security_id: SecurityId,
     pub price: f64,
 }
 
