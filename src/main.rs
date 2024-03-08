@@ -1,12 +1,12 @@
-use actix::prelude::*;
 use dotenv::dotenv;
-use futures::future::try_join_all;
-use log::{debug, error, info};
+use futures::{stream::repeat, StreamExt};
+use log::{debug, error, info, warn};
 use security_cache::{GetLatestPrice, SecurityCache};
 use stats::{PortfolioStatsEvent, PortfolioStatsFeed};
-use std::{collections::HashMap, future::IntoFuture, time::Duration};
+use std::{collections::HashMap, time::Duration};
 use tick_feed::TickFeed;
 use trade_feed::TradeFeed;
+use xtra::prelude::*;
 
 mod models;
 mod security_cache;
@@ -16,7 +16,7 @@ mod trade_feed;
 use models::*;
 
 impl Portfolio {
-    pub fn new(code: String, security_cache: Addr<SecurityCache>) -> Self {
+    pub fn new(code: String, security_cache: Address<SecurityCache>) -> Self {
         Self {
             code,
             security_cache,
@@ -27,14 +27,10 @@ impl Portfolio {
     }
 }
 
-impl Actor for Portfolio {
-    type Context = Context<Self>;
-}
-
 impl Handler<Trade> for Portfolio {
-    type Result = ();
+    type Return = ();
 
-    fn handle(&mut self, msg: Trade, _: &mut Self::Context) -> Self::Result {
+    async fn handle(&mut self, msg: Trade, _: &mut Context<Self>) -> Self::Return {
         if msg.portfolio_code != self.code {
             return;
         }
@@ -65,71 +61,73 @@ impl Handler<Trade> for Portfolio {
 }
 
 impl Handler<PortfolioStatsEvent> for Portfolio {
-    type Result = ResponseFuture<()>;
+    type Return = ();
 
-    fn handle(&mut self, _msg: PortfolioStatsEvent, ctx: &mut Self::Context) -> Self::Result {
-        let security_cache = self.security_cache.clone();
-        let price_futures = self
-            .positions
-            .clone()
-            .into_values()
-            .map(move |p| security_cache.send(GetLatestPrice(p.security.id)));
+    async fn handle(
+        &mut self,
+        _msg: PortfolioStatsEvent,
+        _ctx: &mut Context<Self>,
+    ) -> Self::Return {
+        let num_positions = self.positions.len();
 
-        Box::pin(async move {
-            let prices = try_join_all(price_futures);
+        for pos in &mut self.positions.values_mut() {
+            let price = self
+                .security_cache
+                .send(GetLatestPrice(pos.security.id))
+                .await
+                .expect("Failed to get the price from security cache")
+                .expect("Unknown security id");
 
-            match prices.await {
-                Ok(p) => info!("got prices!!!!, {:?}", p),
-                Err(e) => error!("{}", e),
-            }
-        })
+            let new_price = f64::from(pos.size) * price;
+            pos.unrealized_pnl = new_price - pos.cost_basis;
 
-        // for (_, p) in &mut self.positions {
-        //     let price = self
-        //         .security_cache
-        //         .send(GetLatestPrice(p.id))
-        //         .into_actor(self)
-        //         .then(|result, act, _| {
-        //             match result {
-        //                 Ok(price) => {
-        //                     let new_price = f64::from(p.size) * price.expect("no such security found");
-        //                     p.unrealized_pnl = new_price - p.cost_basis;
-        //                 },
-        //                 Err(e) => error!("{}", e)
-        //             }
-        //         });
-
-        //     ctx.wait(price)?;
-        // }
+            info!(
+                "STATS: {}, {} posititons, {} total trades, realized: {}, unrealized: {}",
+                self.code, num_positions, self.trade_count, self.pnl, pos.unrealized_pnl
+            );
+        }
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     dotenv().ok();
     env_logger::init();
-    let system = System::new();
 
-    let timescale = Duration::from_millis(1);
+    let timescale = Duration::from_millis(500);
 
-    system.block_on(async {
-        let security_cache = SecurityCache::new().start();
+    let security_cache = xtra::spawn_tokio(SecurityCache::new(), Mailbox::unbounded());
 
-        let portfolios = get_portfolios(security_cache.clone());
-        let portfolio_addr_map: HashMap<_, _> = portfolios
-            .into_iter()
-            .map(|p| (p.code.clone(), p.start()))
-            .collect();
-        let portfolio_addrs: Vec<_> = portfolio_addr_map.values().into_iter().cloned().collect();
+    let portfolios = get_portfolios(security_cache.clone());
+    let portfolio_addr_map: HashMap<_, _> = portfolios
+        .into_iter()
+        .map(|p| (p.code.clone(), xtra::spawn_tokio(p, Mailbox::unbounded())))
+        .collect();
+    let portfolio_addrs: Vec<Address<Portfolio>> = portfolio_addr_map.values().into_iter().cloned().collect();
 
-        TickFeed::new(security_cache, timescale).start();
-        TradeFeed::new(portfolio_addr_map, timescale).start();
-        PortfolioStatsFeed::new(portfolio_addrs).start()
-    });
+    xtra::spawn_tokio(
+        TickFeed::new(security_cache, timescale),
+        Mailbox::unbounded(),
+    );
+    xtra::spawn_tokio(
+        TradeFeed::new(portfolio_addr_map, timescale),
+        Mailbox::unbounded(),
+    );
+    xtra::spawn_tokio(
+        PortfolioStatsFeed::new(portfolio_addrs.clone()),
+        Mailbox::unbounded(),
+    );
 
-    system.run().expect("Failed to run the system");
+    // repeat(Duration::from_secs(1))
+    //     .then(tokio::time::sleep)
+    //     .map(|_| Ok(PortfolioStatsEvent {}))
+    //     .forward(portfolio_addrs.first().cloned().unwrap().into_sink())
+    //     .await
+    //     .unwrap();
+    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
 }
 
-fn get_portfolios(security_cache: Addr<SecurityCache>) -> Vec<Portfolio> {
+fn get_portfolios(security_cache: Address<SecurityCache>) -> Vec<Portfolio> {
     vec![
         Portfolio::new(String::from("RMCF"), security_cache.clone()),
         Portfolio::new(String::from("ATAR"), security_cache.clone()),

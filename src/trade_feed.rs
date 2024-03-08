@@ -1,22 +1,21 @@
 use std::{collections::HashMap, time::Duration};
 
-use actix::prelude::*;
 use log::info;
 use rand::{distributions::Uniform, prelude::Distribution, rngs::ThreadRng, Rng};
+use xtra::prelude::*;
 
 use crate::models::*; //
 
+#[derive(Clone)]
 pub struct TradeFeed {
-    rng: ThreadRng,
     timescale: Duration,
-    portfolios: HashMap<String, Addr<Portfolio>>,
+    portfolios: HashMap<String, Address<Portfolio>>,
     internal_next_trade_id: u32,
 }
 
 impl TradeFeed {
-    pub fn new(portfolios: HashMap<String, Addr<Portfolio>>, timescale: Duration) -> Self {
+    pub fn new(portfolios: HashMap<String, Address<Portfolio>>, timescale: Duration) -> Self {
         Self {
-            rng: rand::thread_rng(),
             timescale,
             portfolios,
             internal_next_trade_id: 0,
@@ -35,9 +34,10 @@ impl TradeFeed {
         }
     }
 
-    fn gen_portfolio_code(&mut self) -> String {
+    fn gen_portfolio_code(&self) -> String {
         let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
-        let idx = self.rng.gen_range(0..self.portfolios.len());
+        let mut rng = ThreadRng::default();
+        let idx = rng.gen_range(0..self.portfolios.len());
 
         portfolio_codes[idx].clone()
     }
@@ -46,12 +46,12 @@ impl TradeFeed {
         AAPL.clone()
     }
 
-    fn gen_price(&mut self) -> f64 {
-        Uniform::new(50f64, 1000f64).sample(&mut self.rng)
+    fn gen_price(&self) -> f64 {
+        Uniform::new(50f64, 1000f64).sample(&mut ThreadRng::default())
     }
 
-    fn gen_size(&mut self) -> u32 {
-        Uniform::new(1, 500).sample(&mut self.rng)
+    fn gen_size(&self) -> u32 {
+        Uniform::new(1, 500).sample(&mut ThreadRng::default())
     }
 
     fn next_trade_id(&mut self) -> u32 {
@@ -61,15 +61,15 @@ impl TradeFeed {
         id
     }
 
-    fn gen_duration(&mut self) -> Duration {
-        let seconds = Uniform::new(1, 50).sample(&mut self.rng);
+    fn gen_duration(&self) -> Duration {
+        let seconds = Uniform::new(1, 50).sample(&mut ThreadRng::default());
 
         Duration::from_millis(seconds)
     }
 
-    fn pick_random_portfolio(&mut self) -> (String, Addr<Portfolio>) {
+    fn pick_random_portfolio(&self) -> (String, Address<Portfolio>) {
         let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
-        let idx = self.rng.gen_range(0..self.portfolios.len());
+        let idx = ThreadRng::default().gen_range(0..self.portfolios.len());
         let key = portfolio_codes[idx].clone();
         let cloned = key.clone();
 
@@ -78,33 +78,42 @@ impl TradeFeed {
 }
 
 impl Actor for TradeFeed {
-    type Context = Context<Self>;
+    type Stop = ();
 
-    fn started(&mut self, ctx: &mut Self::Context) {
+    async fn started(&mut self, _mailbox: &Mailbox<Self>) -> Result<(), ()> {
         info!("Started TradeFeed");
         let timescale = self.timescale.clone();
 
-        ctx.run_interval(timescale, move |act, ctx| {
-            let (portfolio_code, sub) = act.pick_random_portfolio();
-            // Mock open trade event
-            let position = act.gen_mock_position();
-            let buy = Trade {
-                portfolio_code: portfolio_code.clone(),
-                trade_type: TradeType::Open(position.clone()),
-            };
+        let mut act = self.clone();
 
-            sub.try_send(buy).expect("failed to send buy");
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(timescale).await;
 
-            let when_to_sell = act.gen_duration();
-            // Schedule the corresponding close trade event after another interval
-            ctx.run_later(when_to_sell, move |_, _| {
+                let (portfolio_code, sub) = act.pick_random_portfolio();
+                // Mock open trade event
+                let position = act.gen_mock_position();
+                let buy = Trade {
+                    portfolio_code: portfolio_code.clone(),
+                    trade_type: TradeType::Open(position.clone()),
+                };
+
+                sub.send(buy).await.expect("failed to send buy");
+
+                let when_to_sell = act.gen_duration();
+                // Schedule the corresponding close trade event after another interval
+                tokio::time::sleep(when_to_sell).await;
                 let sell = Trade {
                     portfolio_code,
                     trade_type: TradeType::Close(position.id),
                 };
 
-                sub.try_send(sell).expect("failed to send");
-            });
+                sub.send(sell).await.expect("failed to send");
+            }
         });
+
+        Ok(())
     }
+
+    async fn stopped(self) -> Self::Stop {}
 }

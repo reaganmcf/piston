@@ -1,4 +1,4 @@
-use actix::{Message, Addr};
+use xtra::prelude::*;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -7,12 +7,12 @@ use crate::security_cache::SecurityCache;
 pub type SecurityId = u32;
 pub type PositionId = u32;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, xtra::Actor)]
 pub struct Portfolio {
     pub code: String,
     pub positions: HashMap<PositionId, Position>,
     pub pnl: f64,
-    pub security_cache: Addr<SecurityCache>,
+    pub security_cache: Address<SecurityCache>,
     pub trade_count: u32,
 }
 
@@ -31,21 +31,19 @@ pub struct Position {
     pub unrealized_pnl: f64,
 }
 
-#[derive(Message, Debug)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 pub struct Tick {
     pub security_id: SecurityId,
     pub price: f64,
 }
 
-#[derive(Message, Debug)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 pub struct Trade {
     pub portfolio_code: String,
     pub trade_type: TradeType
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TradeType {
     Open(Position),
     Close(PositionId),

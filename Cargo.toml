@@ -13,3 +13,5 @@ futures = "0.3.30"
 lazy_static = "1.4.0"
 log = "0.4.21"
 rand = "0.8.5"
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+xtra = { version = "0.6.0", features = ["macros", "tokio", "sink"] }

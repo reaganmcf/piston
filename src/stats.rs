@@ -1,34 +1,44 @@
-use actix::prelude::*;
 use std::time::Duration;
+
 use log::info;
+use xtra::prelude::*;
 
 use crate::models::*;
 
+#[derive(Clone)]
 pub struct PortfolioStatsFeed {
-    subs: Vec<Addr<Portfolio>>,
+    subs: Vec<Address<Portfolio>>,
 }
 
 impl PortfolioStatsFeed {
-    pub fn new(portfolios: Vec<Addr<Portfolio>>) -> Self {
-        Self {
-            subs: portfolios
-        }
+    pub fn new(portfolios: Vec<Address<Portfolio>>) -> Self {
+        Self { subs: portfolios }
     }
 }
 
 impl Actor for PortfolioStatsFeed {
-    type Context = Context<Self>;
+    type Stop = ();
 
-    fn started(&mut self, ctx: &mut Self::Context) {
+    async fn started(&mut self, _mailbox: &Mailbox<Self>) -> Result<(), Self::Stop> {
         info!("Started PortfolioStatsFeed");
-        ctx.run_interval(Duration::from_secs(1), move |act, _| {
-            for sub in &act.subs {
-                sub.do_send(PortfolioStatsEvent {});
+
+        let act = self.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+
+                for sub in &act.subs {
+                    sub.send(PortfolioStatsEvent {})
+                        .await
+                        .expect("Failed to send Stats event to portfolio");
+                }
             }
         });
+
+        Ok(())
     }
+
+    async fn stopped(self) -> Self::Stop {}
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
 pub struct PortfolioStatsEvent;
