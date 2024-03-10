@@ -1,26 +1,35 @@
 use std::sync::RwLock;
 
 use actix::prelude::*;
-use moka::sync::Cache;
-
 use actix::Context;
 use log::debug;
+use moka::sync::Cache;
+use rand::{prelude::SliceRandom, thread_rng, Rng};
 
 use crate::models::{Security, SecurityId, Tick};
 
 #[derive(Debug)]
 pub struct SecurityCache {
+    securities: Cache<SecurityId, Security>,
     last_price: Cache<SecurityId, f64>,
-}
-
-pub struct SecurityCacheActor {
-    inner: &'static RwLock<SecurityCache>,
+    // used for rng
 }
 
 impl SecurityCache {
-    pub fn new() -> Self {
+    pub fn new(securities: Vec<Security>) -> Self {
+        let securities_cache = Cache::<SecurityId, Security>::new(512);
+        let last_price_cache = Cache::<SecurityId, f64>::new(512);
+        let mut rng = thread_rng();
+
+        for sec in securities.into_iter() {
+            last_price_cache.insert(sec.id, rng.gen_range(100.0f64..200f64));
+            securities_cache.insert(sec.id, sec);
+        }
+
+
         Self {
-            last_price: Cache::new(10_000),
+            securities: securities_cache,
+            last_price: last_price_cache,
         }
     }
 
@@ -31,6 +40,27 @@ impl SecurityCache {
     pub fn set_last_price(&mut self, id: SecurityId, price: f64) {
         self.last_price.insert(id, price);
     }
+
+    pub fn get_security(&self, id: SecurityId) -> Option<Security> {
+        self.securities.get(&id)
+    }
+
+    pub fn get_random_security(&self) -> Security {
+        // TODO derive this from the count
+        let mut rng = thread_rng();
+        let random_id = self
+            .securities
+            .into_iter()
+            .map(|(key, _)| *key)
+            .collect::<Vec<_>>()
+            .choose(&mut rng)
+            .copied()
+            .expect("choose random is out of bounds");
+
+        self.securities
+            .get(&random_id)
+            .expect("Generated id from the keys that doesn't exist anymore")
+    }
 }
 
 impl SecurityCacheActor {
@@ -39,6 +69,10 @@ impl SecurityCacheActor {
             inner: security_cache,
         }
     }
+}
+
+pub struct SecurityCacheActor {
+    inner: &'static RwLock<SecurityCache>,
 }
 
 #[derive(Message)]

@@ -1,24 +1,29 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::RwLock, time::Duration};
 
+use crate::{models::*, portfolio::Portfolio, security_cache::SecurityCache};
 use actix::prelude::*;
-use log::info;
+use log::{debug, error, info};
 use rand::{distributions::Uniform, prelude::Distribution, rngs::ThreadRng, Rng};
-
-use crate::{models::*, portfolio::Portfolio};
 
 pub struct TradeFeed {
     rng: ThreadRng,
     timescale: Duration,
     portfolios: HashMap<String, Addr<Portfolio>>,
+    security_cache: &'static RwLock<SecurityCache>,
     internal_next_trade_id: u32,
 }
 
 impl TradeFeed {
-    pub fn new(portfolios: HashMap<String, Addr<Portfolio>>, timescale: Duration) -> Self {
+    pub fn new(
+        portfolios: HashMap<String, Addr<Portfolio>>,
+        security_cache: &'static RwLock<SecurityCache>,
+        timescale: Duration,
+    ) -> Self {
         Self {
             rng: rand::thread_rng(),
             timescale,
             portfolios,
+            security_cache,
             internal_next_trade_id: 0,
         }
     }
@@ -36,7 +41,10 @@ impl TradeFeed {
     }
 
     fn gen_security(&self) -> Security {
-        AAPL.clone()
+        self.security_cache
+            .read()
+            .expect("Failed to read security cache")
+            .get_random_security()
     }
 
     fn gen_price(&mut self) -> f64 {
@@ -68,6 +76,50 @@ impl TradeFeed {
 
         (key, self.portfolios[&cloned].clone())
     }
+
+    fn schedule_trade_generation(&mut self, ctx: &mut Context<Self>) {
+        let batch_size = 5;
+
+        ctx.run_later(self.timescale, move |act, ctx| {
+            // Generate a batch of trades instead of a single one
+            for _ in 0..batch_size {
+                let (portfolio_code, sub) = act.pick_random_portfolio();
+                let position = act.gen_mock_position();
+                let trade = Trade {
+                    portfolio_code: portfolio_code.clone(),
+                    trade_type: TradeType::Open(position.clone()),
+                };
+
+                match sub.try_send(trade) {
+                    Ok(_) => debug!("Trade sent successfully"),
+                    Err(e) => error!("Failed to send trade: {}", e),
+                };
+
+                // Dynamically schedule the closing of the position
+                let when_to_sell = act.gen_duration();
+                ctx.run_later(when_to_sell, move |_act, _ctx| {
+                    let sell = Trade {
+                        portfolio_code: portfolio_code.clone(),
+                        trade_type: TradeType::Close(position.id),
+                    };
+
+                    match sub.try_send(sell) {
+                        Ok(_) => debug!(
+                            "Successfully scheduled position close for position ID {}",
+                            position.id
+                        ),
+                        Err(e) => error!(
+                            "Failed to schedule position close for position ID {}: {}",
+                            position.id, e
+                        ),
+                    };
+                });
+            }
+
+            // Reschedule the next trade generation
+            act.schedule_trade_generation(ctx);
+        });
+    }
 }
 
 impl Actor for TradeFeed {
@@ -75,29 +127,6 @@ impl Actor for TradeFeed {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Started TradeFeed");
-        let timescale = self.timescale;
-
-        ctx.run_interval(timescale, move |act, ctx| {
-            let (portfolio_code, sub) = act.pick_random_portfolio();
-            // Mock open trade event
-            let position = act.gen_mock_position();
-            let buy = Trade {
-                portfolio_code: portfolio_code.clone(),
-                trade_type: TradeType::Open(position.clone()),
-            };
-
-            sub.try_send(buy).expect("failed to send buy");
-
-            let when_to_sell = act.gen_duration();
-            // Schedule the corresponding close trade event after another interval
-            ctx.run_later(when_to_sell, move |_, _| {
-                let sell = Trade {
-                    portfolio_code,
-                    trade_type: TradeType::Close(position.id),
-                };
-
-                sub.try_send(sell).expect("failed to send");
-            });
-        });
+        self.schedule_trade_generation(ctx);
     }
 }

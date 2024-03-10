@@ -14,10 +14,12 @@ mod stats;
 mod tick_feed;
 mod trade_feed;
 
+use models::SECURITY_UNIVERSE;
 use portfolio::Portfolio;
 
 lazy_static! {
-    static ref SECURITY_CACHE: RwLock<SecurityCache> = RwLock::new(SecurityCache::new());
+    static ref SECURITY_CACHE: RwLock<SecurityCache> =
+        RwLock::new(SecurityCache::new(SECURITY_UNIVERSE.to_vec()));
 }
 
 fn main() {
@@ -38,7 +40,7 @@ fn main() {
         let portfolio_addrs: Vec<_> = portfolio_addr_map.values().cloned().collect();
 
         TickFeed::new(security_cache_actor, timescale).start();
-        TradeFeed::new(portfolio_addr_map, timescale).start();
+        TradeFeed::new(portfolio_addr_map, &SECURITY_CACHE, timescale).start();
         PortfolioStatsFeed::new(portfolio_addrs).start()
     });
 

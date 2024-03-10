@@ -61,4 +61,31 @@ lazy_static! {
         ticker: String::from("TSLA"),
         id: 1
     };
+    pub static ref SECURITY_UNIVERSE: Vec<Security> = vec![
+        Security { id: 1, ticker: "AAPL".to_string() }, // Apple Inc.
+        Security { id: 2, ticker: "MSFT".to_string() }, // Microsoft Corporation
+        Security { id: 3, ticker: "AMZN".to_string() }, // Amazon.com, Inc.
+        Security { id: 4, ticker: "GOOGL".to_string() }, // Alphabet Inc. (Google)
+        Security { id: 5, ticker: "FB".to_string() },    // Facebook, Inc.
+        Security { id: 6, ticker: "BRK.A".to_string() }, // Berkshire Hathaway Inc.
+        Security { id: 7, ticker: "V".to_string() },     // Visa Inc.
+        Security { id: 8, ticker: "TSLA".to_string() },  // Tesla, Inc.
+        Security { id: 9, ticker: "JNJ".to_string() },   // Johnson & Johnson
+        Security { id: 10, ticker: "WMT".to_string() },  // Walmart Inc.
+        Security { id: 11, ticker: "JPM".to_string() },  // JPMorgan Chase & Co.
+        Security { id: 12, ticker: "MA".to_string() },   // Mastercard Incorporated
+        Security { id: 13, ticker: "PG".to_string() },   // The Procter & Gamble Company
+        Security { id: 14, ticker: "UNH".to_string() },  // UnitedHealth Group Incorporated
+        Security { id: 15, ticker: "DIS".to_string() },  // The Walt Disney Company
+        Security { id: 16, ticker: "NVDA".to_string() }, // NVIDIA Corporation
+        Security { id: 17, ticker: "HD".to_string() },   // The Home Depot, Inc.
+        Security { id: 18, ticker: "PYPL".to_string() }, // PayPal Holdings, Inc.
+        Security { id: 19, ticker: "BAC".to_string() },  // Bank of America Corporation
+        Security { id: 20, ticker: "VZ".to_string() },   // Verizon Communications Inc.
+        Security { id: 21, ticker: "ADBE".to_string() }, // Adobe Inc.
+        Security { id: 22, ticker: "CMCSA".to_string() },// Comcast Corporation
+        Security { id: 23, ticker: "NFLX".to_string() }, // Netflix, Inc.
+        Security { id: 24, ticker: "KO".to_string() },   // The Coca-Cola Company
+        Security { id: 25, ticker: "NKE".to_string() },  // NIKE, Inc.
+    ];
 }
