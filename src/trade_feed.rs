@@ -75,7 +75,7 @@ impl Actor for TradeFeed {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Started TradeFeed");
-        let timescale = self.timescale.clone();
+        let timescale = self.timescale;
 
         ctx.run_interval(timescale, move |act, ctx| {
             let (portfolio_code, sub) = act.pick_random_portfolio();

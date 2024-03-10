@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{RwLock},
-};
+use std::{collections::HashMap, sync::RwLock};
 
 use actix::{Actor, Context, Handler};
 use log::{debug, info};

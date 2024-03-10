@@ -3,11 +3,7 @@ use dotenv::dotenv;
 use lazy_static::lazy_static;
 use security_cache::{SecurityCache, SecurityCacheActor};
 use stats::PortfolioStatsFeed;
-use std::{
-    collections::HashMap,
-    sync::{RwLock},
-    time::Duration,
-};
+use std::{collections::HashMap, sync::RwLock, time::Duration};
 use tick_feed::TickFeed;
 use trade_feed::TradeFeed;
 
@@ -39,7 +35,7 @@ fn main() {
             .into_iter()
             .map(|p| (p.code.clone(), p.start()))
             .collect();
-        let portfolio_addrs: Vec<_> = portfolio_addr_map.values().into_iter().cloned().collect();
+        let portfolio_addrs: Vec<_> = portfolio_addr_map.values().cloned().collect();
 
         TickFeed::new(security_cache_actor, timescale).start();
         TradeFeed::new(portfolio_addr_map, timescale).start();
