@@ -5,7 +5,7 @@ use security_cache::{SecurityCache, SecurityCacheActor};
 use stats::PortfolioStatsFeed;
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{RwLock},
     time::Duration,
 };
 use tick_feed::TickFeed;

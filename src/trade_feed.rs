@@ -35,13 +35,6 @@ impl TradeFeed {
         }
     }
 
-    fn gen_portfolio_code(&mut self) -> String {
-        let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
-        let idx = self.rng.gen_range(0..self.portfolios.len());
-
-        portfolio_codes[idx].clone()
-    }
-
     fn gen_security(&self) -> Security {
         AAPL.clone()
     }
