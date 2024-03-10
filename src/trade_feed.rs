@@ -4,7 +4,7 @@ use actix::prelude::*;
 use log::info;
 use rand::{distributions::Uniform, prelude::Distribution, rngs::ThreadRng, Rng};
 
-use crate::models::*; //
+use crate::{models::*, portfolio::Portfolio};
 
 pub struct TradeFeed {
     rng: ThreadRng,
@@ -33,13 +33,6 @@ impl TradeFeed {
             cost_basis: price * f64::from(size),
             unrealized_pnl: 0f64,
         }
-    }
-
-    fn gen_portfolio_code(&mut self) -> String {
-        let portfolio_codes: Vec<_> = self.portfolios.keys().collect();
-        let idx = self.rng.gen_range(0..self.portfolios.len());
-
-        portfolio_codes[idx].clone()
     }
 
     fn gen_security(&self) -> Security {
