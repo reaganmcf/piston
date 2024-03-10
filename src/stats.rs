@@ -1,8 +1,8 @@
 use actix::prelude::*;
-use std::time::Duration;
 use log::info;
+use std::time::Duration;
 
-use crate::models::*;
+use crate::portfolio::Portfolio;
 
 pub struct PortfolioStatsFeed {
     subs: Vec<Addr<Portfolio>>,
@@ -10,9 +10,7 @@ pub struct PortfolioStatsFeed {
 
 impl PortfolioStatsFeed {
     pub fn new(portfolios: Vec<Addr<Portfolio>>) -> Self {
-        Self {
-            subs: portfolios
-        }
+        Self { subs: portfolios }
     }
 }
 

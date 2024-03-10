@@ -1,6 +1,6 @@
-use actix::{Message, Addr};
+use actix::Message;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::security_cache::SecurityCache;
 
@@ -12,7 +12,7 @@ pub struct Portfolio {
     pub code: String,
     pub positions: HashMap<PositionId, Position>,
     pub pnl: f64,
-    pub security_cache: Addr<SecurityCache>,
+    pub security_cache: Arc<SecurityCache>,
     pub trade_count: u32,
 }
 
@@ -42,7 +42,7 @@ pub struct Tick {
 #[rtype(result = "()")]
 pub struct Trade {
     pub portfolio_code: String,
-    pub trade_type: TradeType
+    pub trade_type: TradeType,
 }
 
 #[derive(Debug)]
@@ -50,7 +50,6 @@ pub enum TradeType {
     Open(Position),
     Close(PositionId),
 }
-
 
 // TODO - these should be fed through into some global cache
 lazy_static! {

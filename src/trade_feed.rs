@@ -4,7 +4,7 @@ use actix::prelude::*;
 use log::info;
 use rand::{distributions::Uniform, prelude::Distribution, rngs::ThreadRng, Rng};
 
-use crate::models::*; //
+use crate::{models::*, portfolio::Portfolio};
 
 pub struct TradeFeed {
     rng: ThreadRng,
