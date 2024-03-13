@@ -4,4 +4,4 @@ resolver = '2'
 
 members = [
   "piston_core"
-, "piston_ipc", "piston_tui"]
+, "piston_ipc", "piston_shared", "piston_tui"]

@@ -13,4 +13,6 @@ futures = "0.3.30"
 lazy_static = "1.4.0"
 log = "0.4.21"
 moka = { version = "0.12.5", features = ["sync"] }
+piston_ipc = { version = "0.1.0", path = "../piston_ipc" }
+piston_shared = { version = "0.1.0", path = "../piston_shared" }
 rand = "0.8.5"

@@ -1,12 +1,11 @@
 use actix::Message;
 use lazy_static::lazy_static;
+use piston_shared::*;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::security_cache::SecurityCache;
 
-pub type SecurityId = u32;
-pub type PositionId = u32;
-
+// TODO - probably should be refactored to be in shared
 #[derive(Debug, Clone)]
 pub struct Portfolio {
     pub code: String,
@@ -14,21 +13,6 @@ pub struct Portfolio {
     pub pnl: f64,
     pub security_cache: Arc<SecurityCache>,
     pub trade_count: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct Security {
-    pub id: SecurityId,
-    pub ticker: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct Position {
-    pub id: PositionId,
-    pub security: Security,
-    pub cost_basis: f64,
-    pub size: u32,
-    pub unrealized_pnl: f64,
 }
 
 #[derive(Message, Debug)]

@@ -1,12 +1,12 @@
 use std::sync::RwLock;
 
+use crate::models::Tick;
 use actix::prelude::*;
 use actix::Context;
 use log::debug;
 use moka::sync::Cache;
+use piston_shared::*;
 use rand::{prelude::SliceRandom, thread_rng, Rng};
-
-use crate::models::{Security, SecurityId, Tick};
 
 #[derive(Debug)]
 pub struct SecurityCache {
@@ -25,7 +25,6 @@ impl SecurityCache {
             last_price_cache.insert(sec.id, rng.gen_range(100.0f64..200f64));
             securities_cache.insert(sec.id, sec);
         }
-
 
         Self {
             securities: securities_cache,

@@ -1,6 +1,8 @@
 use actix::prelude::*;
 use dotenv::dotenv;
 use lazy_static::lazy_static;
+use piston_ipc::{messages::IpcMessage, IpcWriter};
+use piston_shared::PortfolioStats;
 use security_cache::{SecurityCache, SecurityCacheActor};
 use stats::PortfolioStatsFeed;
 use std::{collections::HashMap, sync::RwLock, time::Duration};
@@ -27,7 +29,18 @@ fn main() {
     env_logger::init();
     let system = System::new();
 
-    let timescale = Duration::from_millis(1);
+    let mut writer = IpcWriter::new().unwrap();
+    writer
+        .send(&IpcMessage::PortfolioStats(PortfolioStats {
+            code: "RMCF".to_string(),
+            pnl: 0f64,
+            positions: Vec::new(),
+            trade_count: 0,
+            unrealized_pnl: 0f64,
+        }))
+        .unwrap();
+
+    let timescale = Duration::from_millis(1000);
 
     system.block_on(async {
         let security_cache_actor = SecurityCacheActor::new(&SECURITY_CACHE).start();

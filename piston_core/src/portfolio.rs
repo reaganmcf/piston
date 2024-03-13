@@ -1,17 +1,19 @@
-use std::{collections::HashMap, sync::RwLock};
-
+use crate::{models::*, security_cache::SecurityCache, stats::PortfolioStatsEvent};
 use actix::{Actor, Context, Handler};
 use log::{debug, info};
-
-use crate::{models::*, security_cache::SecurityCache, stats::PortfolioStatsEvent};
+use piston_ipc::{messages::IpcMessage, IpcWriter};
+use piston_shared::*;
+use std::{collections::HashMap, sync::RwLock};
 
 #[derive(Debug)]
 pub struct Portfolio {
     pub code: String,
-    pub positions: HashMap<PositionId, Position>,
-    pub pnl: f64,
-    pub security_cache: &'static RwLock<SecurityCache>,
-    pub trade_count: u32,
+    positions: HashMap<PositionId, Position>,
+    pnl: f64,
+    security_cache: &'static RwLock<SecurityCache>,
+    trade_count: u32,
+
+    ipc_writer: IpcWriter,
 }
 
 impl Portfolio {
@@ -22,6 +24,8 @@ impl Portfolio {
             positions: HashMap::default(),
             pnl: 0f64,
             trade_count: 0,
+
+            ipc_writer: IpcWriter::new().expect("Failed to create ipc writer"),
         }
     }
 
@@ -95,5 +99,15 @@ impl Handler<PortfolioStatsEvent> for Portfolio {
             self.pnl,
             unrealized_pnl
         );
+
+        self.ipc_writer
+            .send(&IpcMessage::PortfolioStats(PortfolioStats {
+                code: self.code.clone(),
+                positions: self.positions.values().cloned().collect(),
+                trade_count: self.trade_count,
+                pnl: self.pnl,
+                unrealized_pnl,
+            }))
+            .expect("Failed to send portfolio stats");
     }
 }

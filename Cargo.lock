@@ -739,6 +739,8 @@ dependencies = [
  "lazy_static",
  "log",
  "moka",
+ "piston_ipc",
+ "piston_shared",
  "rand",
 ]
 
@@ -747,11 +749,26 @@ name = "piston_ipc"
 version = "0.1.0"
 dependencies = [
  "interprocess",
+ "piston_shared",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "piston_shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
 name = "piston_tui"
 version = "0.1.0"
+dependencies = [
+ "piston_ipc",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "ppv-lite86"
