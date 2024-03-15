@@ -29,17 +29,6 @@ fn main() {
     env_logger::init();
     let system = System::new();
 
-    let mut writer = IpcWriter::new().unwrap();
-    writer
-        .send(&IpcMessage::PortfolioStats(PortfolioStats {
-            code: "RMCF".to_string(),
-            pnl: 0f64,
-            positions: Vec::new(),
-            trade_count: 0,
-            unrealized_pnl: 0f64,
-        }))
-        .unwrap();
-
     let timescale = Duration::from_millis(1000);
 
     system.block_on(async {

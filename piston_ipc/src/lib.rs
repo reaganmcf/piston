@@ -1,10 +1,15 @@
 use std::{
     io::{BufReader, Write},
+    os::unix::net::UnixStream,
     path::Path,
 };
 
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
 use serde::{Deserialize, Serialize};
+use tokio_serde::{formats::SymmetricalJson, SymmetricallyFramed};
+use tokio_util::codec::{length_delimited, FramedWrite, LengthDelimitedCodec};
+
+use crate::messages::IpcMessage;
 
 pub mod messages;
 
@@ -12,7 +17,7 @@ pub struct IpcReader {
     listener: LocalSocketListener,
 }
 
-const SOCKET_PATH: &str = "/tmp/piston-ipc.sock";
+const SOCKET_PATH: &str = "/tmp/piston.sock";
 
 impl IpcReader {
     pub fn new() -> std::io::Result<Self> {
@@ -39,23 +44,28 @@ impl Drop for IpcReader {
 
 #[derive(Debug)]
 pub struct IpcWriter {
-    connection: LocalSocketStream,
+    connection: UnixStream,
 }
 
 impl IpcWriter {
     pub fn new() -> std::io::Result<Self> {
-        let path = Path::new(SOCKET_PATH);
-
         Ok(Self {
-            connection: LocalSocketStream::connect(path)?,
+            connection: UnixStream::connect(SOCKET_PATH)?,
         })
     }
 
-    pub fn send<T: Serialize>(&mut self, message: &T) -> std::io::Result<()> {
-        let message = serde_json::to_string(message)?;
-        println!("Sending: {}", message);
-        self.connection.write_all(message.as_bytes())?;
-        self.connection.flush().expect("Failed to flush");
+    pub fn send<T: Serialize + std::fmt::Debug>(&mut self, message: &T) -> std::io::Result<()> {
+        println!("Sending: {:?}", message);
+        let serialized = serde_json::to_vec(message)?;
+        let length = serialized.len() as u32;
+        let length_bytes = length.to_be_bytes();
+
+        let mut frame = length_bytes.to_vec();
+        frame.extend(serialized);
+
+        self.connection.write_all(&frame)?;
+        // self.connection.flush().expect("Failed to flush");
+        // self.connection.shutdown(std::net::Shutdown::Write)?;
 
         Ok(())
     }
