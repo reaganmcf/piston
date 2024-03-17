@@ -1,9 +1,11 @@
 use lazy_static::lazy_static;
+use log::{error, info};
 use messages::IpcMessage;
 use std::{
     io::{BufReader, Write},
     path::Path,
     sync::RwLock,
+    time::Duration,
 };
 
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
@@ -23,14 +25,26 @@ lazy_static! {
     static ref SOCKET_WRITER_CONNECTION: RwLock<LocalSocketStream> = {
         let path = Path::new(SOCKET_PATH);
 
-        let connection = LocalSocketStream::connect(path).expect("Failed to open socket");
-        RwLock::new(connection)
+        loop {
+            if let Ok(connection) = LocalSocketStream::connect(path) {
+                info!("Connected to {}", path.display());
+                return RwLock::new(connection);
+            }
+
+            // TODO feels weird to log in a library?
+            error!("Failed to connect to socket {}, retrying...", path.display());
+            std::thread::sleep(Duration::from_secs(1));
+        }
     };
 }
 
 impl IpcReader {
     pub fn new() -> std::io::Result<Self> {
         let path = Path::new(SOCKET_PATH);
+
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
 
         Ok(Self {
             listener: LocalSocketListener::bind(path.to_path_buf())?,
