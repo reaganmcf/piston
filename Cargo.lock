@@ -749,6 +749,7 @@ name = "piston_ipc"
 version = "0.1.0"
 dependencies = [
  "interprocess",
+ "lazy_static",
  "piston_shared",
  "serde",
  "serde_json",

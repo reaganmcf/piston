@@ -2,6 +2,7 @@ use actix::prelude::*;
 use dotenv::dotenv;
 use lazy_static::lazy_static;
 use piston_ipc::{messages::IpcMessage, IpcWriter};
+
 use piston_shared::PortfolioStats;
 use security_cache::{SecurityCache, SecurityCacheActor};
 use stats::PortfolioStatsFeed;
