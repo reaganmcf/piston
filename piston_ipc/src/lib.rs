@@ -10,7 +10,7 @@ use std::{
 
 use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
 use serde::Serialize;
-use serde_json::Deserializer;
+use serde_json::{de::IoRead, Deserializer, StreamDeserializer};
 
 pub mod messages;
 
@@ -51,19 +51,21 @@ impl IpcReader {
         })
     }
 
-    pub fn receive(&self) -> std::io::Result<()> {
+    pub fn as_stream(
+        &self,
+    ) -> std::io::Result<StreamDeserializer<IoRead<BufReader<LocalSocketStream>>, IpcMessage>> {
         let stream = self.listener.accept()?;
         let reader = BufReader::new(stream);
         let deserializer = Deserializer::from_reader(reader).into_iter::<IpcMessage>();
 
-        for message in deserializer {
-            match message {
-                Ok(msg) => println!("{:?}", msg),
-                Err(e) => println!("Failed to deserialize, {:?}", e),
-            }
-        }
+        Ok(deserializer)
 
-        Ok(())
+        // for message in deserializer {
+        //     match message {
+        //         Ok(msg) => println!("{:?}", msg),
+        //         Err(e) => println!("Failed to deserialize, {:?}", e),
+        //     }
+        // }
     }
 }
 
